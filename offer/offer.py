@@ -6,9 +6,11 @@ Price comparison DataBase
 """
 
 import argparse
+import decimal
 import os
 import logging
 import time
+from pprint import pprint
 
 import pandas as pd
 from peewee import chunked
@@ -83,17 +85,34 @@ def import_price(supplier_title: str, file_name: str) -> None:
         logger.log(logging.INFO, f'Storing df to db is completed in {round(ts_finish - ts_start, 3)} sec.')
 
 
+def query_price(query_file: str, output_file: str) -> None:
+    ts_start = time.time()
+    output = open(output_file, 'w')
+    with open(query_file, 'r') as f:
+        for query_pattern in f:
+            query = Price.select().where(Price.partnumber == query_pattern.strip()).order_by(Price.price)
+            for price in query:
+                output.write(f'{price.partnumber}\t${cost(price.price, price.weight):.2f}'
+                             f'\t{price.date}\t{price.supplier.title}\n')
+                break
+    output.close()
+    ts_finish = time.time()
+    logger.log(logging.INFO, f'Query is executed in {round(ts_finish - ts_start, 3)} sec.')
+
+
+def cost(price, weight) -> str:
+    return price * decimal.Decimal('1.03') + weight * decimal.Decimal('9.8')
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=f'Price comparison DataBase')
     parser.add_argument('-s', '--supplier', help="title of supplier, e.g. RA-TY-1")
-    parser.add_argument('-f', '--file', help="path to file")
-    args = parser.parse_args()
+    parser.add_argument('-f', '--file', help="path to file for import")
+    parser.add_argument('-q', '--query', help="path to file for query")
+    parser.add_argument('-o', '--output', help="path to file for result")
 
-    if args.supplier is None:
-        parser.error("Please provide --supplier option")
-    if args.file is None:
-        parser.error("Please provide --file option")
+    args = parser.parse_args()
 
     database = connect('sqlite:///default.db')
     db.initialize(database)
@@ -101,4 +120,13 @@ def main() -> None:
     # Create the tables.
     db.create_tables([Supplier, Price])
 
-    import_price(args.supplier, args.file)
+    if args.query is None:
+        if args.supplier is None:
+            parser.error("Please provide --supplier option")
+        if args.file is None:
+            parser.error("Please provide --file option")
+        import_price(args.supplier, args.file)
+    else:
+        if args.output is None:
+            parser.error("Please provide --output option")
+        query_price(args.query, args.output)
