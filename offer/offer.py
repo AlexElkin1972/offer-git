@@ -7,16 +7,17 @@ Price comparison DataBase
 
 import argparse
 import decimal
-import os
 import logging
 import time
-from pprint import pprint
 
 import pandas as pd
 from peewee import chunked
 from playhouse.db_url import connect
 
 from offer.models import db, Supplier, Price
+
+MULTIPLIER_COST = "1.03"
+MULTIPLIER_WEIGHT = "9.8"
 
 # Enable logging
 logging.basicConfig(
@@ -88,20 +89,26 @@ def import_price(supplier_title: str, file_name: str) -> None:
 def query_price(query_file: str, output_file: str) -> None:
     ts_start = time.time()
     output = open(output_file, 'w')
+    output.write(f'{"Part number"}\t{"Cost, $"}\t{"W/Delivery"}'
+                 f'\t{"Date"}\t{"Supplier"}\n')
     with open(query_file, 'r') as f:
         for query_pattern in f:
             query = Price.select().where(Price.partnumber == query_pattern.strip()).order_by(Price.price)
             for price in query:
-                output.write(f'{price.partnumber}\t${cost(price.price, price.weight):.2f}'
-                             f'\t{price.date}\t{price.supplier.title}\n')
+                output.write(f'{price.partnumber}\t{cost(price.price):.2f}'
+                             f'\t{cost_ext(price.price, price.weight):.2f}\t{price.date}\t{price.supplier.title}\n')
                 break
     output.close()
     ts_finish = time.time()
     logger.log(logging.INFO, f'Query is executed in {round(ts_finish - ts_start, 3)} sec.')
 
 
-def cost(price, weight) -> str:
-    return price * decimal.Decimal('1.03') + weight * decimal.Decimal('9.8')
+def cost_ext(price, weight) -> str:
+    return price * decimal.Decimal(MULTIPLIER_COST) + weight * decimal.Decimal(MULTIPLIER_WEIGHT)
+
+
+def cost(price) -> str:
+    return price * decimal.Decimal(MULTIPLIER_COST)
 
 
 def main() -> None:
