@@ -16,8 +16,8 @@ from playhouse.db_url import connect
 
 from offer.models import db, Supplier, Price
 
-MULTIPLIER_COST = "1.03"
-MULTIPLIER_WEIGHT = "9.8"
+MULTIPLIER_COST = '1.03'
+MULTIPLIER_WEIGHT = '9.8'
 
 # Enable logging
 logging.basicConfig(
@@ -89,14 +89,14 @@ def import_price(supplier_title: str, file_name: str) -> None:
 def query_price(query_file: str, output_file: str) -> None:
     ts_start = time.time()
     output = open(output_file, 'w')
-    output.write(f'{"Part number"}\t{"Cost, $"}\t{"W/Delivery"}'
-                 f'\t{"Date"}\t{"Supplier"}\n')
+    output.write(f'{"Part number"};{"Cost, $"};{"W/Delivery"}'
+                 f';{"Date"};{"Supplier"}\n')
     with open(query_file, 'r') as f:
         for query_pattern in f:
             query = Price.select().where(Price.partnumber == query_pattern.strip()).order_by(Price.price)
             for price in query:
-                output.write(f'{price.partnumber}\t{cost(price.price):.2f}'
-                             f'\t{cost_ext(price.price, price.weight):.2f}\t{price.date}\t{price.supplier.title}\n')
+                output.write(f'{price.partnumber};{cost(price.price)}'
+                             f';{cost_ext(price.price, price.weight)};{price.date};{price.supplier.title}\n')
                 break
     output.close()
     ts_finish = time.time()
@@ -104,20 +104,22 @@ def query_price(query_file: str, output_file: str) -> None:
 
 
 def cost_ext(price, weight) -> str:
-    return price * decimal.Decimal(MULTIPLIER_COST) + weight * decimal.Decimal(MULTIPLIER_WEIGHT)
+    return f'{price * decimal.Decimal(MULTIPLIER_COST) + weight * decimal.Decimal(MULTIPLIER_WEIGHT):.2f}'\
+        .replace('.', ',')
 
 
 def cost(price) -> str:
-    return price * decimal.Decimal(MULTIPLIER_COST)
+    return f'{price * decimal.Decimal(MULTIPLIER_COST):.2f}'.replace('.', ',')
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=f'Price comparison DataBase')
-    parser.add_argument('-s', '--supplier', help="title of supplier, e.g. RA-TY-1")
-    parser.add_argument('-f', '--file', help="path to file for import")
-    parser.add_argument('-q', '--query', help="path to file for query")
-    parser.add_argument('-o', '--output', help="path to file for result")
+    parser.add_argument('-s', '--supplier', help='title of supplier, e.g. RA-TY-1')
+    parser.add_argument('-f', '--file', help='path to file for import, e.g. '
+                                             '"EXCLUSIVE PLUS_TY_SUPPLIER_1_2021-09-09.xlsx"')
+    parser.add_argument('-q', '--query', help='path to file for query, e.g. query.csv')
+    parser.add_argument('-o', '--output', help='path to file for result, e.g. output.csv')
 
     args = parser.parse_args()
 
