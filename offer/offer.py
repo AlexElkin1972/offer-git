@@ -93,9 +93,10 @@ def query_price(query_file: str, output_file: str) -> None:
                  f';{"Date"};{"Supplier"}\n')
     with open(query_file, 'r') as f:
         for query_pattern in f:
-            query = Price.select().where(Price.partnumber == query_pattern.strip()).order_by(Price.price)
+            query = Price.select().where(Price.partnumber == query_pattern.strip().replace('-', ''))\
+                .order_by(Price.price)
             for price in query:
-                output.write(f'{price.partnumber};{cost(price.price)}'
+                output.write(f'{query_pattern.strip()};{cost(price.price)}'
                              f';{cost_ext(price.price, price.weight)};{price.date};{price.supplier.title}\n')
                 break
     output.close()
@@ -104,11 +105,17 @@ def query_price(query_file: str, output_file: str) -> None:
 
 
 def cost_ext(price, weight) -> str:
+    if weight is None:
+        weight = 0
+    if price is None:
+        price = 0
     return f'{price * decimal.Decimal(MULTIPLIER_COST) + weight * decimal.Decimal(MULTIPLIER_WEIGHT):.2f}'\
         .replace('.', ',')
 
 
 def cost(price) -> str:
+    if price is None:
+        price = 0
     return f'{price * decimal.Decimal(MULTIPLIER_COST):.2f}'.replace('.', ',')
 
 
